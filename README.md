@@ -1,81 +1,108 @@
 # Spring AI Study
 
-Spring AI를 처음 배우면서 Day1, Day2, 그리고 `ch03-prompt` 자습 내용을 누적 정리한 학습 저장소입니다.
+Spring AI를 Day1부터 Day3까지 학습하면서 만든 실습 저장소입니다.
+기본 호출, Prompt 설계, Structured Output, Advisor, Chat Memory, H2 연동, 미니 프로젝트까지 한 흐름으로 정리했습니다.
 
-## 한눈에 보기
+## 학습 범위
 
-- Day1: Spring AI 첫 호출, `Controller -> Service -> ChatClient` 흐름 이해
+- Day1: `ChatClient` 첫 호출, `Controller -> Service -> ChatClient` 흐름 이해
 - Day2: Prompt 설계, JSON/Object/List 형태의 Structured Output 실습
-- 자습: `ch03-prompt` 프로젝트로 Prompt Template, Few-shot, Role Assignment 등 프롬프트 기법 분석
-- 정리 자료: 학습 로그, 시각화 Markdown, 발표용 PPT
-
-## 시각화 자료
-
-- 발표용 PPT: [DAY1_DAY2_VISUAL.pptx](DAY1_DAY2_VISUAL.pptx)
-- 학습 누적 로그: [STUDY_LOG.md](STUDY_LOG.md)
+- Day3: Advisor, In-Memory Chat Memory, JDBC Chat Memory, H2 Console 확인
+- Mini Project: CareLink 보호자 상담 AI 콘솔 구현
 
 ## 프로젝트 구성
 
 | 폴더 | 내용 |
 |---|---|
-| `day01-chat-client` | Spring AI `ChatClient` 첫 호출, `/api/chat`, `/api/teacher`, HTML UI 실습 |
-| `day02-prompt-output` | Prompt 설계, `record`, `entity()`, `List` 응답 실습 |
-| `ch03-prompt` | Prompt Template, Zero-shot, Few-shot, Multi Messages 등 프롬프트 기법 자습 |
+| `day01-chat-client` | `/api/chat`, `/api/teacher`, 기본 HTML UI |
+| `day02-prompt-output` | 요약, 분류, JSON 응답, 객체 변환, 리스트 응답 |
+| `day03-advisor-memory` | Advisor, Chat Memory, H2 기반 대화 저장 실습 |
+| `carelink-ai-mariadb` | CareLink 보호자 상담 AI 콘솔, H2 파일 DB, 루트 대시보드 UI |
+| `ch03-prompt` | Prompt Template, Few-shot, Role Assignment 등 실습 분석용 폴더 |
 
-## 핵심 흐름
+## 오늘 정리한 핵심
+
+### 1. Day3 핵심 개념
+
+- `Advisor`
+  AI 호출 전후에 공통 로직을 끼워 넣는 장치입니다.
+- `MessageChatMemoryAdvisor`
+  같은 `conversationId`의 이전 대화를 불러와 문맥을 이어줍니다.
+- `JdbcChatMemoryRepository`
+  대화 메모리를 DB에 저장하는 저장소입니다.
+- `H2 Console`
+  브라우저에서 DB 테이블을 직접 조회할 수 있습니다.
+
+### 2. Mini Project: CareLink Guardian Console
+
+오늘 만든 미니 프로젝트는 단순 챗봇이 아니라, 보호자 질문을 받고 이전 대화를 기억하면서 응답하고, 그 기록을 실제 DB에 남기는 구조입니다.
+
+핵심 흐름은 아래와 같습니다.
 
 ```mermaid
 flowchart LR
-    U["사용자"] --> C["Controller"]
-    C --> S["Service"]
-    S --> CC["ChatClient"]
-    CC --> AI["AI Model"]
-    AI --> R["Response"]
-    R --> U
+    U["사용자"] --> UI["루트 대시보드 /"]
+    UI --> C["GuardianChatController"]
+    C --> S["GuardianChatService"]
+    S --> A["RequestLoggingAdvisor"]
+    S --> M["MessageChatMemoryAdvisor"]
+    M --> DB["H2 Chat Memory"]
+    S --> AI["Gemini ChatClient"]
+    AI --> S
+    S --> DB
+    S --> R["GuardianChatResponse"]
+    R --> UI
 ```
 
-## Day1 요약
+## 실행 방법
 
-Day1의 목표는 AI를 Spring Boot 앱 안에서 처음 호출해보는 것이었습니다.
+루트에서 모듈별로 실행해도 되고, IntelliJ에서 각 모듈을 따로 실행해도 됩니다.
 
-```java
-return chatClient.prompt()
-        .user(message)
-        .call()
-        .content();
+### carelink-ai-mariadb 실행
+
+```powershell
+cd C:\Users\금정산2-PC02\p2-spring\spring-ai-study\carelink-ai-mariadb
+.\gradlew.bat bootRun
 ```
 
-이 코드는 AI에게 보낼 대화 묶음을 만들고, 사용자 질문을 넣고, 실제 호출한 뒤, 응답 본문만 꺼내는 흐름입니다.
+### 접속 주소
 
-## Day2 요약
+- 홈 화면: [http://localhost:8080/](http://localhost:8080/)
+- H2 콘솔: [http://localhost:8080/h2-console/](http://localhost:8080/h2-console/)
+- API 예시:
+  [http://localhost:8080/api/guardian-chat?question=안녕하세요&conversationId=demo-1](http://localhost:8080/api/guardian-chat?question=%EC%95%88%EB%85%95%ED%95%98%EC%84%B8%EC%9A%94&conversationId=demo-1)
 
-Day2의 목표는 AI에게 원하는 방식으로 말 걸고 원하는 형태로 응답받는 것이었습니다.
+## H2 확인 방법
 
-| 기능 | 엔드포인트 | 응답 형태 |
-|---|---|---|
-| 요약 | `/api/summary` | `String` |
-| 분류 | `/api/classify` | `String` |
-| 분류 JSON | `/api/classify/json` | JSON 문자열 |
-| 분류 객체 | `/api/classify/object` | `InquiryResult` |
-| 영화 추천 | `/api/movie` | `List<MovieResponse>` |
-| 준비물 추천 | `/api/packing` | `List<String>` |
+### H2 Console
 
-## 오늘 자습 요약
+- Driver Class: `org.h2.Driver`
+- JDBC URL: `jdbc:h2:file:./data/chatmemory`
+- User Name: `sa`
+- Password: 빈칸
 
-`ch03-prompt`는 프롬프트 전략을 기능별로 나누어 실습하는 프로젝트입니다.
+조회 SQL:
 
-- `prompt-template`: 빈칸이 있는 프롬프트 틀에 값을 넣는 방식
-- `multi-messages`: 이전 대화 내용을 기억하며 이어서 대화하는 방식
-- `default-method`: `ChatClient.Builder`에 기본 시스템 메시지와 옵션을 미리 설정하는 방식
-- `zero-shot-prompt`: 예시 없이 바로 작업을 시키는 방식
-- `few-shot-prompt`: 예시를 보여준 뒤 같은 형식으로 답하게 하는 방식
-- `role-assignment`: AI에게 특정 역할을 부여하는 방식
-- `step-back-prompt`: 큰 질문을 작은 질문으로 나눠 단계적으로 답하는 방식
-- `chain-of-thought`: 풀이 과정을 단계적으로 설명하게 하는 방식
-- `self-consistency`: 여러 번 답을 받아 다수결로 안정성을 높이는 방식
+```sql
+SELECT * FROM SPRING_AI_CHAT_MEMORY;
+```
 
-## 학습 메모
+### DBeaver
 
-지금까지 가장 중요한 문장은 이것입니다.
+- JDBC URL:
+  `jdbc:h2:file:C:/Users/금정산2-PC02/p2-spring/spring-ai-study/carelink-ai-mariadb/data/chatmemory;AUTO_SERVER=TRUE`
+- User Name: `sa`
+- Password: 빈칸
 
-> Day1은 AI를 앱에 연결하는 날이고, Day2는 AI에게 원하는 방식으로 말 걸고 원하는 모양으로 응답받는 날입니다.
+## 발표 포인트
+
+- 단순 AI 응답이 아니라 `conversationId` 기준 대화 기억이 됩니다.
+- H2 DB에 실제 저장되어 H2 Console과 DBeaver에서 검증할 수 있습니다.
+- Day3에서 배운 `Advisor`와 `Chat Memory`를 미니 프로젝트에 연결했습니다.
+- 루트 대시보드 UI를 만들어 발표와 시연이 쉬운 형태로 정리했습니다.
+
+## 참고 자료
+
+- 학습 로그: [STUDY_LOG.md](STUDY_LOG.md)
+- Day3 코드 주석 정리: [DAY3_PDF_CODE_ANNOTATED.md](DAY3_PDF_CODE_ANNOTATED.md)
+- Day1/Day2 발표 자료: `DAY1_DAY2_VISUAL.pptx`

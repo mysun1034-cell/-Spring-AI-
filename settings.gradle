@@ -1,0 +1,6 @@
+rootProject.name = 'spring-ai-study'
+
+include 'day01-chat-client'
+include 'day02-prompt-output'
+include 'day03-advisor-memory'
+include 'carelink-ai-mariadb'

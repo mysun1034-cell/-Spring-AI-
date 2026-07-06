@@ -35,16 +35,3 @@ out/
 
 ### VS Code ###
 .vscode/
-
-### Logs ###
-*.log
-bootrun-*.txt
-h2test*.txt
-
-### Runtime data ###
-data/
-*.mv.db
-*.lock.db
-
-### IDE run configs ###
-.run/
