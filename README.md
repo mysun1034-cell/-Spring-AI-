@@ -37,6 +37,8 @@ Spring AI를 Day1부터 Day3까지 학습하면서 만든 실습 저장소입니
 
 오늘 만든 미니 프로젝트는 단순 챗봇이 아니라, 보호자 질문을 받고 이전 대화를 기억하면서 응답하고, 그 기록을 실제 DB에 남기는 구조입니다.
 
+![CareLink Guardian Console](images/carelink-guardian-console.png)
+
 핵심 흐름은 아래와 같습니다.
 
 ```mermaid
