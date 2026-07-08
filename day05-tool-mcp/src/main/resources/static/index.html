@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CareLink AI Command</title>
+    <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+<div class="motion-field" aria-hidden="true">
+    <div class="grid-layer"></div>
+    <div class="radar-ring ring-one"></div>
+    <div class="radar-ring ring-two"></div>
+    <div class="signal signal-a"></div>
+    <div class="signal signal-b"></div>
+    <div class="signal signal-c"></div>
+    <div class="scanline"></div>
+</div>
+
+<main class="shell">
+    <section class="hero panel">
+        <div class="hero-copy">
+            <p class="eyebrow">Spring AI Day 5 · Tool Calling / MCP</p>
+            <h1>CareLink AI Command</h1>
+            <p class="hero-text">
+                장기요양 상담을 위한 AI 작전 콘솔입니다. 수급자 정보, 돌봄 규칙, 현재 시간,
+                MCP 문서를 한 화면에서 연결해 보호자 상담 답변을 생성합니다.
+            </p>
+            <div class="hero-actions">
+                <button class="primary-action" id="runGuardian">Run Guardian Query</button>
+                <button class="ghost-action" id="runFollowUp">Load Follow-up</button>
+            </div>
+        </div>
+
+        <div class="status-board">
+            <div class="status-card hot">
+                <span>Runtime</span>
+                <strong>Spring Boot</strong>
+                <small>localhost:8080</small>
+            </div>
+            <div class="status-card">
+                <span>Model</span>
+                <strong>Gemini</strong>
+                <small>genai chat</small>
+            </div>
+            <div class="status-card">
+                <span>Tools</span>
+                <strong>Local + MCP</strong>
+                <small>memory enabled</small>
+            </div>
+        </div>
+    </section>
+
+    <section class="dashboard">
+        <article class="panel command-panel">
+            <div class="section-heading">
+                <p class="eyebrow">Mission Console</p>
+                <h2>Guardian Chat Dispatch</h2>
+            </div>
+
+            <div class="mode-grid" aria-label="API mode selector">
+                <button class="mode-card active" data-endpoint="/api/assistant">
+                    <span>Assistant</span>
+                    <strong>Tool + Memory</strong>
+                </button>
+                <button class="mode-card" data-endpoint="/api/tool-chat">
+                    <span>Local Tool</span>
+                    <strong>Time · Recipient · Rule</strong>
+                </button>
+                <button class="mode-card" data-endpoint="/api/mcp-chat">
+                    <span>MCP</span>
+                    <strong>Filesystem · Fetch</strong>
+                </button>
+                <button class="mode-card" data-endpoint="/api/mixed-chat">
+                    <span>Mixed</span>
+                    <strong>Local + MCP</strong>
+                </button>
+            </div>
+
+            <label class="field">
+                <span>Endpoint</span>
+                <select id="endpoint">
+                    <option value="/api/assistant">/api/assistant</option>
+                    <option value="/api/tool-chat">/api/tool-chat</option>
+                    <option value="/api/mcp-chat">/api/mcp-chat</option>
+                    <option value="/api/mixed-chat">/api/mixed-chat</option>
+                    <option value="/api/mcp/filesystem">/api/mcp/filesystem</option>
+                    <option value="/api/mcp/fetch">/api/mcp/fetch</option>
+                </select>
+            </label>
+
+            <label class="field">
+                <span>conversationId</span>
+                <input id="conversationId" value="carelink-night-01" />
+            </label>
+
+            <label class="field">
+                <span>question</span>
+                <textarea id="question" rows="8">R001 수급자의 야간 돌봄 주의사항과 보호자에게 전달할 안내문을 작성해주세요.</textarea>
+            </label>
+
+            <div class="quick-prompts">
+                <button data-prompt="R001 수급자의 야간 돌봄 주의사항과 보호자에게 전달할 안내문을 작성해주세요.">R001 야간 돌봄</button>
+                <button data-prompt="방금 수급자에게 복약 누락이 있었던 상황을 보호자에게 어떻게 말하면 좋을까요?">기억 이어가기</button>
+                <button data-prompt="mcp-sandbox 문서에 있는 복약관리 안내를 요약하고 상담 문장으로 바꿔주세요.">MCP 문서 요약</button>
+                <button data-prompt="현재 시간 기준으로 야간 근무자가 확인해야 할 체크리스트를 만들어주세요.">현재 시간 체크</button>
+            </div>
+        </article>
+
+        <article class="panel response-panel">
+            <div class="section-heading response-heading">
+                <div>
+                    <p class="eyebrow">Response Feed</p>
+                    <h2>Inference Output</h2>
+                </div>
+                <div class="live-badge" id="liveBadge">Ready</div>
+            </div>
+
+            <div class="telemetry">
+                <span id="activeEndpoint">/api/assistant</span>
+                <span id="timer">0ms</span>
+                <span id="memoryState">memory: on</span>
+            </div>
+
+            <pre id="response" class="response-box">질문을 보내면 Spring AI 응답이 여기에 표시됩니다.</pre>
+        </article>
+    </section>
+
+    <section class="intel-grid">
+        <article class="panel mini-panel">
+            <p class="eyebrow">Route Map</p>
+            <h3>API Flow</h3>
+            <ul>
+                <li><span>/api/assistant</span> Tool + Memory</li>
+                <li><span>/api/tool-chat</span> Local Tool Calling</li>
+                <li><span>/api/mcp-chat</span> MCP Client</li>
+                <li><span>/api/mixed-chat</span> Local + MCP</li>
+            </ul>
+        </article>
+
+        <article class="panel mini-panel">
+            <p class="eyebrow">Care Tools</p>
+            <h3>Local Capability</h3>
+            <ul>
+                <li><span>DateTimeTools</span> 현재 시간 확인</li>
+                <li><span>CustomerTools</span> 수급자 상태 조회</li>
+                <li><span>CompanyRuleTools</span> 돌봄 규칙 조회</li>
+            </ul>
+        </article>
+
+        <article class="panel mini-panel">
+            <p class="eyebrow">MCP Surface</p>
+            <h3>External Tools</h3>
+            <ul>
+                <li><span>filesystem</span> mcp-sandbox 문서 읽기</li>
+                <li><span>fetch</span> 외부 URL 자료 요청</li>
+                <li><span>mixed-chat</span> 로컬 + 외부 도구 결합</li>
+            </ul>
+        </article>
+    </section>
+</main>
+
+<script src="/app.js"></script>
+</body>
+</html>

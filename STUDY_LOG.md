@@ -2778,3 +2778,838 @@ tutor_mode = {
 
 **한 줄 메모**:
 - 좋은 튜터 프롬프트는 단순히 친절하게 설명하라는 수준이 아니라, 설명 순서와 출력 형식까지 같이 고정해야 한다.
+---
+## [2026-07-08] Q: Day5 Tool Calling / MCP 수업 전체 흐름 분석
+
+**질문**: 이게 오늘 수업 내용이야. 분석해봐.
+
+**핵심 개념**:
+- Tool Calling: 모델은 직접 실행하지 않고, 애플리케이션에게 도구 실행을 요청한다.
+- `@Tool` + `.tools(...)`: 로컬 자바 메서드를 모델이 쓸 수 있는 도구로 붙이는 가장 기본 패턴이다.
+- MCP: 파일시스템, 웹 fetch 같은 외부 도구를 표준 프로토콜로 연결하는 방식이다.
+- Tool + Memory 결합: 도구 호출 결과와 이전 대화 맥락을 함께 기억해서 다음 턴에 재사용할 수 있다.
+
+**Python 비교**:
+```python
+def get_current_time():
+    return datetime.now().isoformat()
+
+tools = [get_current_time]
+# 모델은 어떤 tool이 필요한지 요청만 하고,
+# 실제 함수 실행은 애플리케이션이 한다.
+```
+
+**Java/Spring 연결**:
+```java
+return chatClient.prompt()
+        .user(question)
+        .tools(dateTimeTools, customerTools, companyRuleTools)
+        .call()
+        .content();
+```
+
+**흐름 타임라인**:
+- 0ms: 사용자가 질문을 보낸다.
+- 10ms: Controller가 질문을 Service로 전달한다.
+- 20ms: Service가 `ChatClient`에 질문과 도구 목록을 붙인다.
+- 30ms: 모델이 필요한 도구를 고른다.
+- 40ms: Spring AI가 실제 자바 메서드 또는 MCP 서버 도구를 실행한다.
+- 50ms: 도구 결과가 다시 모델에게 전달된다.
+- 60ms: 모델이 최종 자연어 답변을 만든다.
+
+**한 줄 메모**:
+- Day5의 핵심은 “AI가 답만 하는 단계”에서 “우리 앱의 기능을 빌려 일하는 단계”로 넘어가는 것이다.
+---
+## [2026-07-08] Q: `spring.ai.mcp.client.stdio.connections.filesystem` 설정 해석
+
+**질문**:     mcp:
+      client:
+        request-timeout: 30s
+        stdio:
+          connections:
+            filesystem:
+
+설명해봐
+
+**핵심 개념**:
+- `client`: 우리 앱이 MCP 서버를 소비하는 쪽이라는 뜻이다.
+- `request-timeout: 30s`: MCP 서버 응답을 30초까지만 기다린다는 뜻이다.
+- `stdio`: 외부 MCP 서버 프로세스와 표준입출력으로 통신하는 방식이다.
+- `connections.filesystem`: 파일시스템용 MCP 서버 연결 하나를 등록하는 시작점이다.
+
+**Python 비교**:
+```python
+proc = subprocess.Popen(
+    ["some-mcp-server"],
+    stdin=subprocess.PIPE,
+    stdout=subprocess.PIPE,
+    text=True
+)
+```
+
+**Java/Spring 연결**:
+```yaml
+spring:
+  ai:
+    mcp:
+      client:
+        request-timeout: 30s
+        stdio:
+          connections:
+            filesystem:
+```
+
+**흐름 타임라인**:
+- 0ms: 앱이 시작된다.
+- 10ms: Spring Boot가 `application.yaml`의 MCP 설정을 읽는다.
+- 20ms: `filesystem` 연결 정보를 보고 MCP 서버 실행 준비를 한다.
+- 30ms: stdio 방식으로 서버 프로세스를 띄운다.
+- 40ms: 서버 도구 목록을 받아온다.
+- 50ms: 이후 사용자 질문이 오면 이 도구 목록을 `.tools(...)`처럼 사용한다.
+
+**한 줄 메모**:
+- 이 블록은 “파일 도구 서버를 우리 앱이 손님처럼 붙어서 쓸 준비”를 적는 설정이다.
+---
+## [2026-07-08] Q: filesystem MCP 서버를 자세히 이해하기
+
+**질문**: filesystem에 관해 자세히 설명
+
+**핵심 개념**:
+- filesystem MCP 서버: 로컬 파일 읽기/쓰기/목록 조회 같은 기능을 도구 형태로 제공하는 서버다.
+- 샌드박스 경로: 보통 `${user.dir}/mcp-sandbox`처럼 제한된 폴더만 열어둬서 안전하게 실습한다.
+- 범용 도구: 고객 등급 조회처럼 우리 도메인 전용 기능은 `@Tool`, 파일 다루기처럼 공통 기능은 MCP가 적합하다.
+- 모델은 직접 파일을 읽지 않는다: 어떤 파일을 읽을지 요청하고, 실제 읽기는 MCP 서버가 한다.
+
+**Python 비교**:
+```python
+from pathlib import Path
+
+root = Path("./mcp-sandbox")
+files = list(root.iterdir())
+text = (root / "memo.txt").read_text(encoding="utf-8")
+```
+
+**Java/Spring 연결**:
+```yaml
+filesystem:
+  command: cmd.exe
+  args:
+    - "/c"
+    - "npx"
+    - "-y"
+    - "@modelcontextprotocol/server-filesystem"
+    - "${user.dir}/mcp-sandbox"
+```
+
+**흐름 타임라인**:
+- 0ms: 앱이 filesystem MCP 서버를 실행한다.
+- 10ms: 서버는 `mcp-sandbox` 경로를 기준으로 접근 가능한 파일 범위를 정한다.
+- 20ms: 사용자가 “파일 읽어줘” 같은 질문을 보낸다.
+- 30ms: 모델이 파일 읽기 도구가 필요하다고 판단한다.
+- 40ms: Spring AI가 filesystem MCP 서버의 `read_text_file` 같은 도구를 호출한다.
+- 50ms: 읽어온 결과가 모델에게 전달된다.
+- 60ms: 모델이 내용을 요약하거나 설명해 최종 응답을 만든다.
+
+**한 줄 메모**:
+- filesystem은 “AI가 컴퓨터 전체를 보는 기능”이 아니라, 정해진 폴더 안에서만 파일 작업을 대신해주는 안전한 도구 서버다.
+---
+## [2026-07-08] Q: `McpToolCatalog.java` 작성 중 문법과 의존성 문제
+
+**질문**: package com.study.day05toolmcp.mcp;
+
+import org.springframework.ai.tool.ToolCallback;
+import org.springframework.stereotype.Component;
+import org.springframework.
+
+
+@Component
+public class McpToolCatalog {
+    
+    private final ToolCallback[];
+    
+    public McpToolCatalog(List<McpSyncClient>) {
+        this.filesystemTools = SyncMcpToolCallbackProvider.builder().mcpClients(mcpClients).build().getToolCallbacks();
+    }
+}
+뭐가 문제지?
+
+**핵심 개념**:
+- 문법 오류: import 문이 끊겼고, 배열 필드 이름과 생성자 파라미터 이름이 빠져 있었다.
+- 타입 의존성: `McpSyncClient`, `SyncMcpToolCallbackProvider`를 쓰려면 MCP client starter 의존성이 필요하다.
+- 역할: `McpToolCatalog`는 MCP 서버에서 받아온 ToolCallback 배열을 묶어서 서비스에서 꺼내 쓰기 쉽게 만드는 컴포넌트다.
+- Windows MCP 실행 주의: `application.yaml`에서 `cmd.exe /c npx` 형태가 더 안정적이었다.
+
+**Python 비교**:
+```python
+class McpToolCatalog:
+    def __init__(self, mcp_clients):
+        self.filesystem_tools = build_callbacks(mcp_clients)
+```
+
+**Java/Spring 연결**:
+```java
+@Component
+public class McpToolCatalog {
+
+    private final ToolCallback[] filesystemTools;
+
+    public McpToolCatalog(List<McpSyncClient> mcpClients) {
+        this.filesystemTools = SyncMcpToolCallbackProvider.builder()
+                .mcpClients(mcpClients)
+                .build()
+                .getToolCallbacks();
+    }
+
+    public ToolCallback[] filesystemTools() {
+        return filesystemTools;
+    }
+}
+```
+
+**흐름 타임라인**:
+- 0ms: 앱 부팅 중 Spring이 `McpToolCatalog` 빈 생성을 시도한다.
+- 10ms: 생성자에서 `List<McpSyncClient>`가 주입된다.
+- 20ms: `SyncMcpToolCallbackProvider`가 MCP 클라이언트 목록을 기반으로 ToolCallback 배열을 만든다.
+- 30ms: `filesystemTools` 필드에 저장된다.
+- 40ms: 이후 Service가 `.tools((Object[]) catalog.filesystemTools())`처럼 사용한다.
+
+**한 줄 메모**:
+- `McpToolCatalog`는 “MCP 서버 도구들을 Service에서 쉽게 꺼내 쓰기 위한 정리함”이라고 이해하면 된다.
+---
+## [2026-07-08] Q: Day1부터 Day5까지 전체 흐름을 Day4 포함해서 한 번에 정리
+
+**질문**: 그리고 나 어제 수업 못 들어서 Day4 안 했어. 내가 Day4자료 줄테니까 Day1부터 Day5까지 오늘 모두 정리해보자.
+
+**핵심 개념**:
+- Day1: `ChatClient`로 가장 기본적인 AI 호출 흐름을 익힌다.
+- Day2: Prompt와 Structured Output으로 “질문을 어떻게 잘 시키고, 답을 어떻게 구조로 받는지”를 배운다.
+- Day3: Advisor와 Chat Memory로 여러 턴 대화와 공통 규칙을 붙인다.
+- Day4: 멀티모달 입력으로 텍스트뿐 아니라 이미지·PDF·오디오를 함께 보내고 `.entity()`로 구조화해 받는다.
+- Day5: Tool Calling과 MCP로 모델이 앱의 함수나 외부 도구를 “요청”하게 만든다.
+
+**Python 비교**:
+```python
+# Day1
+answer = llm.ask("안녕?")
+
+# Day2
+prompt = f"{text}를 3줄로 요약해줘"
+result = to_dict(llm.ask(prompt))
+
+# Day3
+memory.append(user_message)
+memory.append(ai_message)
+
+# Day4
+llm.ask(text="영수증 분석해줘", media=image_bytes)
+
+# Day5
+tool_result = get_customer_grade("C001")
+llm.ask_with_tools("고객 등급 알려줘", tools=[get_customer_grade])
+```
+
+**Java/Spring 연결**:
+```java
+// Day1
+chatClient.prompt().user(question).call().content();
+
+// Day2
+chatClient.prompt().user(u -> u.text(template).param("text", text)).call().entity(Result.class);
+
+// Day3
+builder.defaultAdvisors(MessageChatMemoryAdvisor.builder(chatMemory).build());
+
+// Day4
+new Media(MimeTypeUtils.IMAGE_JPEG, new ByteArrayResource(file.getBytes()));
+
+// Day5
+chatClient.prompt().user(question).tools(dateTimeTools, customerTools).call().content();
+```
+
+**흐름 타임라인**:
+- 0ms: Day1에서 사용자가 텍스트 질문을 보낸다.
+- 10ms: Day2에서 Prompt가 더 구체적인 지시와 변수 치환을 담당한다.
+- 20ms: Day3에서 Advisor와 Chat Memory가 대화 공통 규칙과 이전 맥락을 붙인다.
+- 30ms: Day4에서 텍스트 외에 이미지·PDF·오디오 같은 Media가 함께 전달된다.
+- 40ms: Day5에서 모델이 필요한 도구 호출을 요청하고, 앱이나 MCP 서버가 실제 실행한다.
+- 50ms: 각 결과가 다시 모델에 전달되고 최종 응답이 완성된다.
+
+**한 줄 메모**:
+- Day1~Day5 전체를 한 문장으로 묶으면 “질문 보내기 → 더 잘 시키기 → 기억 붙이기 → 멀티모달로 넓히기 → 도구와 외부 시스템까지 연결하기”이다.
+---
+## [2026-07-08] Q: LMS 자료에서 Spring AI 관련 내용만 뽑아 교육자료 만들기
+
+**질문**: https://lms.expandsource.com/materials 여기들어가면 이때까지 배운 내용들이 나오는데 Spring AI 관련 내용만 뽑아와서 교육 자료 만들어줘.
+
+**핵심 개념**:
+- LMS 기준 Spring AI 학습 흐름은 Day1 ChatClient → Day2 Prompt/Structured Output → Day3 Advisor/Chat Memory → Day4 Multimodal → Day5 Tool Calling/MCP 순서다.
+- Day5 학습자 가이드에서도 Day1~4 기능이 이미 starter 위에 누적되어 있고, 그 위에 Tool/MCP를 쌓는 구조라고 설명한다.
+- 교육자료로 만들 때는 “기능 확장 순서”와 “왜 이 개념이 다음 날에 필요한지”를 연결해서 보여주는 게 가장 중요하다.
+- Day5 기준 제출물은 로컬 도구, tool+memory, MCP filesystem/fetch/mixed-chat까지 캡처와 README를 포함하는 형태다.
+
+**Python 비교**:
+```python
+day1 = "llm.ask()"
+day2 = "prompt + structured result"
+day3 = "memory + advisor"
+day4 = "text + image/pdf/audio"
+day5 = "tools + external tool server"
+```
+
+**Java/Spring 연결**:
+```java
+// Day5 학습 가이드 핵심 흐름
+chatClient.prompt()
+        .user(question)
+        .tools(dateTimeTools, customerTools, companyRuleTools)
+        .call()
+        .content();
+```
+
+**흐름 타임라인**:
+- 0ms: LMS 수업 자료 목록에서 Day5와 Day4 가이드를 확인한다.
+- 10ms: Day5 가이드에서 Day1~4가 starter에 이미 들어있다는 구조를 확인한다.
+- 20ms: Day1~Day5를 기능 확장 순서로 재구성한다.
+- 30ms: 각 Day별 핵심 개념과 대표 엔드포인트를 뽑는다.
+- 40ms: 학습자용 교육자료 형태로 다시 묶는다.
+
+**한 줄 메모**:
+- LMS 자료 기준으로도 Spring AI 수업의 본질은 “하루마다 새 기술을 배우는 것”이 아니라 “같은 앱 위에 능력을 한 층씩 쌓는 것”이다.
+---
+## [2026-07-08] Q: Day1~Day5 Spring AI 교육자료를 더 자세하게 정리
+
+**질문**: 교육자료를 자세히 줘야지?
+
+**핵심 개념**:
+- 상세 교육자료는 단순 요약이 아니라 `왜 배우는지`, `핵심 코드`, `실습 체크포인트`, `흔한 실수`, `다음 날 연결`까지 포함해야 한다.
+- LMS에서 확인된 Spring AI 수업 축은 Day1 ChatClient, Day3 Advisor/Chat Memory, Day4 Multimodal, Day5 Tool Calling/MCP이며, Day2는 Prompt/Structured Output으로 그 사이를 연결한다.
+- 전체 학습 흐름은 “질문 → 잘 시키기 → 기억 → 멀티모달 → 도구 실행”이다.
+
+**Python 비교**:
+```python
+course_flow = [
+    "ask llm",
+    "prompt better + parse result",
+    "add conversation memory",
+    "send media with text",
+    "call tools and external servers",
+]
+```
+
+**Java/Spring 연결**:
+```java
+chatClient.prompt()
+        .user(question)
+        .call()
+        .content();
+```
+
+**흐름 타임라인**:
+- 0ms: LMS 자료 제목과 현재까지의 Day1~Day5 구조를 다시 확인한다.
+- 10ms: 각 Day의 목적과 연결 관계를 정리한다.
+- 20ms: 하루별 핵심 개념, 코드 포인트, 실습 체크포인트를 묶는다.
+- 30ms: 학습자용 상세 교육자료 형태로 재구성한다.
+
+**한 줄 메모**:
+- 학습자는 기술 이름보다 “왜 오늘 이걸 배우고, 내일 무엇과 연결되는지”가 보여야 전체가 이해된다.
+---
+## [2026-07-08] Q: Day5 Tool Calling / MCP 과제 주제와 진행 방식 정하기
+
+**질문**: 오늘 과제는 어떻게 할까?
+
+**핵심 개념**:
+- Day5 과제는 “멋진 주제”보다 “Tool 사다리 5단계 + MCP Client 4단계 + README/캡처 제출”을 얼마나 자연스럽게 담는지가 더 중요하다.
+- 주제 선택 기준은 도구 3종(시간, 도메인 조회, 규칙/FAQ), tool+memory, filesystem/fetch, mixed-chat을 모두 설명하기 쉬운가이다.
+- 예시 주제 중에서는 `AI 장기요양 헬퍼`가 이전 CareLink 맥락과도 맞고, Day5 요구사항을 과하지 않게 담기 좋다.
+
+**Python 비교**:
+```python
+assignment_checklist = [
+    "local tool 3개",
+    "tool + memory",
+    "filesystem MCP",
+    "fetch MCP",
+    "mixed chat",
+    "README + screenshots",
+]
+```
+
+**Java/Spring 연결**:
+```java
+chatClient.prompt()
+        .user(question)
+        .tools(localTools..., mcpTools...)
+        .call()
+        .content();
+```
+
+**흐름 타임라인**:
+- 0ms: 과제 주제를 정한다.
+- 10ms: Day5 제출 요구사항을 체크리스트로 바꾼다.
+- 20ms: 주제가 로컬 Tool, Memory, MCP filesystem/fetch를 모두 담을 수 있는지 본다.
+- 30ms: MVP 엔드포인트와 README 캡처 목록을 정한다.
+
+**한 줄 메모**:
+- Day5 과제는 “도구 호출 구조를 얼마나 잘 보여주느냐”가 핵심이라서, 주제는 복잡하기보다 설명이 잘 되는 쪽이 유리하다.
+---
+## [2026-07-08] Q: Day5 과제를 잘 개발하면 실제로 쓸 수 있는지
+
+**질문**: 그래 가보자. 이거 잘 개발하면 쓸 수 있을려나?
+
+**핵심 개념**:
+- Day5 과제 수준의 앱도 범위를 잘 좁히면 실제 내부 업무 보조 도구로는 충분히 쓸 수 있다.
+- 다만 장기요양처럼 민감한 도메인에서는 `자동 의사결정자`가 아니라 `사람을 돕는 보조자`로 두는 것이 안전하다.
+- 실사용으로 가려면 인증, 권한, DB 연동, 로그, 근거 표시, 예외 처리, 비용 관리가 추가로 필요하다.
+- 가장 먼저 실전성이 생기는 영역은 FAQ 답변, 보호자 상담 초안, 어르신 상태 요약, 규정/문서 조회 같은 보조 업무다.
+
+**Python 비교**:
+```python
+# 바로 자동 승인 시스템으로 쓰기보다
+# 사람이 검토하는 보조 도구로 먼저 쓰는 게 안전하다.
+
+draft = ai_assistant.make_reply(question, patient_info, manual_docs)
+human_review(draft)
+```
+
+**Java/Spring 연결**:
+```java
+chatClient.prompt()
+        .user(question)
+        .tools(localTools..., mcpTools...)
+        .call()
+        .content();
+```
+
+**흐름 타임라인**:
+- 0ms: 사용자가 보호자 문의를 입력한다.
+- 10ms: 앱이 어르신 상태, 돌봄 규칙, 문서 정보를 도구로 조회한다.
+- 20ms: AI가 답변 초안을 만든다.
+- 30ms: 사람이 초안을 검토하고 수정한다.
+- 40ms: 검토된 답변을 실제 상담이나 기록에 활용한다.
+
+**한 줄 메모**:
+- 이 과제는 “현장 자동화 완성품”보다는 “실무 보조용 AI 어시스턴트의 매우 좋은 시작점”으로 보는 게 가장 정확하다.
+---
+## [2026-07-08] Q: AI 장기요양 헬퍼 Day5 과제 구현 시작
+
+**질문**: 그래.
+
+**핵심 개념**:
+- 기존 Day5 Tool Calling 프로젝트를 `AI 장기요양 헬퍼` 주제로 바꿔 과제 제출 구조에 맞췄다.
+- 로컬 Tool은 수급자 상태 조회, 돌봄 규칙 조회, 현재 시간 조회로 구성했다.
+- MCP는 filesystem과 fetch를 모두 연결하고, local tool과 MCP tool을 함께 쓰는 mixed-chat까지 구성했다.
+- 테스트에서는 MCP 서버 자동 연결을 꺼서 빌드가 외부 프로세스 상태에 흔들리지 않게 했다.
+
+**Python 비교**:
+```python
+local_tools = [get_recipient_profile, get_care_rule, get_current_time]
+mcp_tools = [read_local_file, fetch_url]
+assistant.ask(question, tools=local_tools + mcp_tools)
+```
+
+**Java/Spring 연결**:
+```java
+return chatClient.prompt()
+        .user(question)
+        .tools(dateTimeTools, customerTools, companyRuleTools)
+        .call()
+        .content();
+```
+
+**흐름 타임라인**:
+- 0ms: 사용자가 과제 주제를 `AI 장기요양 헬퍼`로 진행하자고 확정했다.
+- 10ms: 기존 고객/사내 규칙 도구를 수급자/돌봄 규칙 도구 내용으로 바꿨다.
+- 20ms: `/api/assistant`, `/api/tool-chat`, `/api/mcp/fetch`, `/api/mcp-chat`, `/api/mixed-chat`를 추가했다.
+- 30ms: `mcp-sandbox`에 장기요양 문서 3개를 추가했다.
+- 40ms: README와 제출 체크리스트를 추가했다.
+- 50ms: `compileJava`, `build`, 8081 실제 부팅 검증을 통과했다.
+
+**한 줄 메모**:
+- 오늘 과제 MVP는 “장기요양 상담 도메인”을 빌려 Tool Calling과 MCP 구조를 선명하게 보여주는 방향으로 구현했다.
+---
+## [2026-07-08] Q: 백지에서 AI 장기요양 헬퍼를 어떤 순서로 만들지 이해하기
+
+**질문**: 자 이건 너가 만든 거지. 내가 만든 거 아니잖아. 난 너가 한 방식이랑 똑같이 하고 싶어. 그런데 순서를 모르겠어. 내가 파악하기로는 넌 Controller, Tool, Service,application, MCP, service, Sandbox를 만들고 검증했는데 만약 우리가 작성한 코드가 하나도 없고 백지에서 시작한다고 하면 너는 지금의 프로그램을 어떻게 만들건지 나한테 코드 한 줄 별로 말해줄 수 있어?
+
+**핵심 개념**:
+- 백지에서 만들 때는 Controller부터 치는 게 아니라, 먼저 “AI가 어떤 능력을 가져야 하는지”를 Tool 단위로 나눈다.
+- 구현 순서는 `프로젝트 설정 → 기본 ChatService → 로컬 Tool → ToolChatService → Memory Service → Controller → MCP 설정 → MCP Service → sandbox 문서 → 검증`이 자연스럽다.
+- Controller는 입구이고, Service는 흐름이며, Tool은 AI가 요청할 수 있는 실제 능력이다.
+
+**Python 비교**:
+```python
+tools = [get_current_time, get_recipient_profile, get_care_rule]
+service = AiService(llm, tools)
+route("/api/tool-chat", service.chat)
+```
+
+**Java/Spring 연결**:
+```java
+chatClient.prompt()
+        .user(question)
+        .tools(dateTimeTools, customerTools, companyRuleTools)
+        .call()
+        .content();
+```
+
+**흐름 타임라인**:
+- 0ms: 어떤 AI 앱을 만들지 정한다.
+- 10ms: AI가 쓸 로컬 도구를 정한다.
+- 20ms: 각 도구를 `@Tool` 메서드로 만든다.
+- 30ms: Service에서 `.tools(...)`로 도구를 붙인다.
+- 40ms: Controller에서 URL을 열어준다.
+- 50ms: MCP 설정과 문서 폴더를 붙인다.
+- 60ms: Gradle build와 실제 부팅으로 검증한다.
+
+**한 줄 메모**:
+- 같은 프로그램을 직접 만들려면 “Controller부터”가 아니라 “AI에게 줄 능력부터” 생각하는 게 가장 안정적이다.
+---
+## [2026-07-08] Q: Day5 프로젝트 전체 코드를 파일별 주석 버전으로 보고 Spring Boot 구조 이해하기
+
+**질문**: 너가 만든 우리의 프로젝트를 파일별로 전체 주석을 달아서 제공해줘. 그리고 나 아직 Springboot 구조가 이해가 안 가. 그 점 유의해서 전체코드 with 주석 by 파일 제공해줘.
+
+**핵심 개념**:
+- Spring Boot 구조: `Application`은 시작점, `Controller`는 요청 입구, `Service`는 실제 처리, `Tool`은 AI가 호출할 수 있는 기능, `Config`는 설정입니다.
+- Tool Calling 구조: AI가 직접 함수를 실행하는 것이 아니라, AI가 도구 호출을 요청하고 Spring 애플리케이션이 실제 메서드를 실행합니다.
+- MCP 구조: 외부 MCP 서버가 제공하는 도구를 `ToolCallback` 형태로 바꿔 `ChatClient`에 붙입니다.
+
+**Python 비교**:
+```python
+@app.get("/api/assistant")
+def assistant(question: str, conversation_id: str = "care-demo"):
+    return helpdesk_service.chat(question, conversation_id)
+```
+
+**Java/Spring 연결**:
+```java
+@GetMapping("/api/assistant")
+public String assistant(@RequestParam String question,
+                        @RequestParam(defaultValue = "care-demo") String conversationId) {
+    return helpdeskService.chat(question, conversationId);
+}
+```
+
+**흐름 타임라인**:
+- 0ms: 사용자가 `/api/assistant`로 질문을 보냅니다.
+- 10ms: `AiController`가 요청을 받습니다.
+- 20ms: `HelpdeskService.chat()`으로 질문을 넘깁니다.
+- 30ms: `ChatMemoryAdvisor`가 같은 `conversationId`의 이전 대화를 붙입니다.
+- 40ms: `dateTimeTools`, `customerTools`, `companyRuleTools`를 AI에게 사용 가능하도록 붙입니다.
+- 100ms 이후: AI가 필요하면 Tool 호출을 요청하고, Spring 앱이 실제 Tool 메서드를 실행한 뒤 결과를 AI에게 돌려줍니다.
+
+**한 줄 메모**:
+- 원본 소스에 과한 주석을 직접 넣지 않고, 학습용 문서 `day05-tool-mcp/DAY5_ANNOTATED_CODE.md`에 파일별 주석 코드를 정리했습니다.
+---
+## [2026-07-08] Q: Day5 프로젝트에 팔란티어풍 프론트엔드 만들기
+
+**질문**: 우리 프론트 앤드 만들자. 팔란티어 스타일로 만들어. 막 움직이고 뛰다니고 그런 거 있자나
+
+**핵심 개념**:
+- Spring Boot 정적 리소스: `src/main/resources/static/index.html`을 만들면 서버 실행 후 `http://localhost:8080/`에서 바로 열립니다.
+- 프론트와 백엔드 연결: JavaScript `fetch()`로 `/api/assistant`, `/api/tool-chat`, `/api/mcp-chat`, `/api/mixed-chat`을 호출합니다.
+- UI 구성: HTML은 구조, CSS는 팔란티어풍 작전 콘솔 디자인과 애니메이션, JS는 버튼 클릭과 API 요청을 담당합니다.
+
+**Python 비교**:
+```python
+# Flask에서 static/index.html을 서빙하고,
+# 브라우저 JS가 /api/assistant로 요청을 보내는 구조와 비슷합니다.
+@app.get("/api/assistant")
+def assistant(question: str):
+    return service.chat(question)
+```
+
+**Java/Spring 연결**:
+```java
+// src/main/resources/static/index.html
+// 이 위치에 있으면 Spring Boot가 "/" 주소로 자동 서빙합니다.
+```
+
+**흐름 타임라인**:
+- 0ms: 사용자가 `http://localhost:8080/`로 접속합니다.
+- 10ms: Spring Boot가 `index.html`, `styles.css`, `app.js`를 내려줍니다.
+- 50ms: 사용자가 화면에서 질문을 입력하고 버튼을 누릅니다.
+- 60ms: `app.js`가 `fetch("/api/assistant?...")`를 실행합니다.
+- 100ms 이후: 기존 Controller, Service, ChatClient, Tool/MCP 흐름이 실행되고 응답이 화면에 표시됩니다.
+
+**한 줄 메모**:
+- 프론트 파일 3개(`index.html`, `styles.css`, `app.js`)와 README 프론트 설명을 추가했고, `gradlew build`와 `node --check`를 통과했습니다.
+---
+## [2026-07-08] Q: `@Service`, `private final`, 생성자 주입, `ChatClient.Builder` 구조의 이유
+
+**질문**: `@Service public class ChatService`, `private final ChatClient chatClient`, `public ChatService(ChatClient.Builder builder) { this.chatClient = builder.build(); }` 난 이렇게 구조를 잡는 문법의 이유를 모르겠어
+
+**핵심 개념**:
+- `@Service`: Spring에게 이 클래스를 직접 new 하지 말고, 앱 시작 시 객체로 만들어 관리하라고 알려줍니다.
+- `private final`: 이 서비스가 사용할 중요한 부품을 외부에서 함부로 바꾸지 못하게 고정합니다.
+- 생성자 주입: 필요한 부품을 Spring이 생성자 안으로 자동으로 넣어주는 방식입니다.
+- `Builder`: 복잡한 객체인 `ChatClient`를 설정을 포함해 안전하게 만들기 위한 조립 도구입니다.
+
+**Python 비교**:
+```python
+class ChatService:
+    def __init__(self, builder):
+        self.chat_client = builder.build()
+```
+
+**Java/Spring 연결**:
+```java
+@Service
+public class ChatService {
+    private final ChatClient chatClient;
+
+    public ChatService(ChatClient.Builder builder) {
+        this.chatClient = builder.build();
+    }
+}
+```
+
+**흐름 타임라인**:
+- 0ms: Spring Boot가 실행됩니다.
+- 100ms: Spring이 `@Service`가 붙은 `ChatService`를 발견합니다.
+- 120ms: `ChatService`를 만들기 위해 생성자를 봅니다.
+- 130ms: 생성자에 필요한 `ChatClient.Builder`를 Spring이 찾아 넣어줍니다.
+- 140ms: `builder.build()`로 실제 `ChatClient`가 만들어집니다.
+- 150ms: 만들어진 `ChatClient`가 `this.chatClient`에 저장됩니다.
+
+**한 줄 메모**:
+- 이 구조는 "내가 직접 객체를 조립하는 방식"이 아니라 "Spring이 앱 시작 때 필요한 객체들을 조립해두고, 우리는 가져다 쓰는 방식"입니다.
+---
+## [2026-07-08] Q: `private final`을 왜 사용하는지 이해하기
+
+**질문**: private은 “이 클래스 안에서만 쓰게 하자”는 뜻이고, final은 “처음 넣은 뒤 바꾸지 말자”는 뜻 왜 이렇게 해?
+
+**핵심 개념**:
+- `private`: 클래스 내부 부품을 밖에서 마음대로 바꾸지 못하게 막아 객체의 책임을 보호합니다.
+- `final`: 생성자에서 받은 필수 의존성을 실행 중에 다른 객체로 바꾸지 못하게 고정합니다.
+- Spring Service는 보통 여러 요청이 함께 쓰는 싱글톤이므로, 내부 부품이 중간에 바뀌면 예측하기 어려운 버그가 생깁니다.
+
+**Python 비교**:
+```python
+class ChatService:
+    def __init__(self, chat_client):
+        self._chat_client = chat_client  # 관례상 내부 전용
+```
+
+**Java/Spring 연결**:
+```java
+@Service
+public class ChatService {
+    private final ChatClient chatClient;
+}
+```
+
+**흐름 타임라인**:
+- 0ms: Spring이 `ChatService` 객체를 한 번 만듭니다.
+- 10ms: 생성자에서 `ChatClient`를 넣습니다.
+- 20ms: `final` 때문에 이후 다른 `ChatClient`로 교체할 수 없습니다.
+- 100ms 이후: 여러 사용자의 요청이 들어와도 같은 안정된 `chatClient`를 사용합니다.
+
+**한 줄 메모**:
+- `private final`은 “이 서비스의 핵심 부품은 생성 시 정하고, 밖에서 못 건드리게 하자”는 안정성 문법입니다.
+---
+## [2026-07-08] Q: Day5 팔란티어풍 프론트엔드 사용법
+
+**질문**: 너가 만든 프론트 사용법 좀 알려줘
+
+**핵심 개념**:
+- Spring Boot 정적 페이지: `http://localhost:8080/`로 접속하면 `src/main/resources/static/index.html`이 열립니다.
+- API 모드 선택: 화면에서 `/api/assistant`, `/api/tool-chat`, `/api/mcp-chat`, `/api/mixed-chat` 중 어떤 백엔드 흐름을 쓸지 고릅니다.
+- Chat Memory: `/api/assistant`는 같은 `conversationId`를 유지하면 이전 질문을 기억한 후속 질문이 가능합니다.
+
+**Python 비교**:
+```python
+# 화면에서 fetch("/api/assistant?question=...")를 호출하는 구조입니다.
+response = requests.get("/api/assistant", params={"question": question})
+```
+
+**Java/Spring 연결**:
+```java
+@GetMapping("/api/assistant")
+public String assistant(@RequestParam String question,
+                        @RequestParam(defaultValue = "care-demo") String conversationId) {
+    return helpdeskService.chat(question, conversationId);
+}
+```
+
+**흐름 타임라인**:
+- 0ms: 브라우저에서 `http://localhost:8080/` 접속
+- 10ms: `index.html`, `styles.css`, `app.js` 로드
+- 50ms: 사용자가 API 모드와 질문을 선택
+- 60ms: `Ctrl + Enter` 또는 상단 실행 버튼으로 `fetch()` 요청
+- 100ms 이후: Spring Controller, Service, ChatClient, Tool/MCP가 실행되고 응답이 화면에 표시됨
+
+**한 줄 메모**:
+- 사용자 정의 질문은 질문창에서 `Ctrl + Enter`로 보내고, 상단 버튼은 미리 준비된 데모 질문을 바로 실행합니다.
+---
+## [2026-07-08] Q: 프론트 모드별 구현 흐름 이해하기
+
+**질문**: 그런데 모드가 많잖아. 각각의 모드가 어떻게 구현된 건지 설명해줄래?
+
+**핵심 개념**:
+- 프론트 모드: 화면의 모드 카드는 실제 기능 자체가 아니라 호출할 `endpoint` 값을 바꾸는 UI입니다.
+- Controller 라우팅: 선택된 endpoint는 `AiController`의 `@GetMapping` 메서드로 들어갑니다.
+- Service 분리: `/api/tool-chat`은 `ToolChatService`, `/api/assistant`는 `HelpdeskService`, `/api/mcp-chat`과 `/api/mixed-chat`은 `McpChatService`가 처리합니다.
+
+**Python 비교**:
+```python
+if endpoint == "/api/assistant":
+    return helpdesk_service.chat(question, conversation_id)
+elif endpoint == "/api/tool-chat":
+    return tool_chat_service.chat(question)
+```
+
+**Java/Spring 연결**:
+```java
+@GetMapping("/api/assistant")
+public String assistant(@RequestParam String question,
+                        @RequestParam(defaultValue = "care-demo") String conversationId) {
+    return helpdeskService.chat(question, conversationId);
+}
+```
+
+**흐름 타임라인**:
+- 0ms: 사용자가 프론트에서 모드 카드를 클릭합니다.
+- 10ms: `app.js`가 `endpointSelect.value`를 해당 API 주소로 바꿉니다.
+- 20ms: 사용자가 `Ctrl + Enter` 또는 실행 버튼을 누릅니다.
+- 30ms: `fetch(endpoint + "?question=...")` 요청이 나갑니다.
+- 40ms: `AiController`의 해당 `@GetMapping` 메서드가 실행됩니다.
+- 50ms 이후: 각 모드에 맞는 Service가 ChatClient, Tool, Memory, MCP를 붙여 AI를 호출합니다.
+
+**한 줄 메모**:
+- 모드가 많아 보여도 핵심은 “endpoint가 다르고, 그 endpoint마다 붙는 도구 조합이 다르다”입니다.
+---
+## [2026-07-08] Q: Day5 프론트 시연 시나리오 구성
+
+**질문**: 그러면 시연 시나리오를 짜줘.
+
+**핵심 개념**:
+- 시연 순서: 기본 화면 소개 → 로컬 Tool Calling → Chat Memory → MCP 문서 도구 → Mixed 최종 모드 순서가 가장 이해하기 쉽습니다.
+- 발표 포인트: AI가 그냥 답하는 것이 아니라, 필요할 때 Java Tool과 MCP Tool을 호출해 답변을 강화한다는 점을 보여줍니다.
+- 안전 메시지: 장기요양 상담 보조 도구이며 의료적·법적 최종 판단은 담당자 확인이 필요하다는 점을 함께 말합니다.
+
+**Python 비교**:
+```python
+# 발표 흐름으로 치면 endpoint를 하나씩 바꿔가며 requests.get()을 실행하는 것과 같습니다.
+requests.get("/api/tool-chat", params={"question": "R001 상태 알려줘"})
+requests.get("/api/assistant", params={"conversationId": "demo-01", "question": "방금 수급자 기준으로 정리해줘"})
+```
+
+**Java/Spring 연결**:
+```java
+@GetMapping("/api/mixed-chat")
+public String mixedChat(@RequestParam String question) {
+    return mcpChatService.chatMixed(question);
+}
+```
+
+**흐름 타임라인**:
+- 0초: 프론트 화면과 프로젝트 목표 소개
+- 30초: `/api/tool-chat`으로 로컬 Tool Calling 시연
+- 90초: `/api/assistant`로 같은 `conversationId`에서 후속 질문 기억 시연
+- 150초: `/api/mcp-chat`으로 `mcp-sandbox` 문서 조회 시연
+- 210초: `/api/mixed-chat`으로 로컬 Tool과 MCP Tool 결합 시연
+
+**한 줄 메모**:
+- 시연의 핵심 문장은 “이 앱은 AI가 답만 생성하는 게 아니라, 필요한 도구를 선택하고 실행 결과를 바탕으로 상담 답변을 만듭니다.”입니다.
+---
+## [2026-07-08] Q: Day5 발표 내용을 한눈에 볼 수 있는 이미지 자료 만들기
+
+**질문**: 이거 발표때 한눈에 볼 수 있게 이미지로 만들어줘. 양이 많으니까 이미지 여러개 만들어도 돼
+
+**핵심 개념**:
+- 발표용 시각화: 긴 설명을 한 장에 모두 넣기보다 표지, 아키텍처, 시연 순서, 모드 비교로 나누면 이해가 쉽습니다.
+- SVG 인포그래픽: 글자가 깨지지 않고, PPT에 넣어도 선명하게 확대할 수 있습니다.
+- PNG 변환: 발표 자료에 바로 넣기 편하도록 SVG를 PNG로도 변환했습니다.
+
+**Python 비교**:
+```python
+# 개념적으로는 긴 설명 데이터를 여러 장의 차트로 나누는 작업입니다.
+slides = ["cover", "architecture", "demo_flow", "mode_matrix"]
+```
+
+**Java/Spring 연결**:
+```java
+// 발표 이미지의 핵심 흐름
+// Frontend -> AiController -> Service -> ChatClient -> Tool/MCP -> Gemini
+```
+
+**흐름 타임라인**:
+- 0ms: 시연 내용을 4개 이미지 주제로 나눕니다.
+- 10ms: 표지용 팔란티어풍 배경 이미지를 생성합니다.
+- 30ms: 아키텍처 SVG를 만듭니다.
+- 50ms: 3분 시연 시나리오 SVG를 만듭니다.
+- 70ms: 모드별 구현 비교 SVG를 만듭니다.
+- 100ms: SVG를 PNG로 변환해 PPT 삽입용 파일을 준비합니다.
+
+**한 줄 메모**:
+- 발표 이미지는 `day05-tool-mcp/presentation` 폴더에 `00-cover.png`, `01-architecture`, `02-demo-scenario`, `03-mode-matrix` 형태로 저장했습니다.
+---
+## [2026-07-08] Q: 외부 MCP 서버가 우리가 만든 MCP 파일을 의미하는지 이해하기
+
+**질문**: 외부 MCP 서버는 우리가 만든 MCP 파일을 의미하는 거지?
+
+**핵심 개념**:
+- 외부 MCP 서버: 우리 Java 코드 안에 있는 파일이 아니라, `npx`나 `uvx`로 따로 실행되는 외부 도구 프로그램입니다.
+- 우리 MCP Java 파일: 외부 MCP 서버를 직접 만드는 코드가 아니라, 외부 서버가 제공하는 도구를 Spring AI `ChatClient`에 연결하는 클라이언트 코드입니다.
+- `mcp-sandbox`: MCP filesystem 서버가 읽을 수 있도록 허용한 문서 폴더이며, 서버 자체는 아닙니다.
+
+**Python 비교**:
+```python
+# 우리 앱은 클라이언트 역할
+mcp_tools = connect_to_external_mcp_server("filesystem")
+ai.attach_tools(mcp_tools)
+```
+
+**Java/Spring 연결**:
+```yaml
+filesystem:
+  command: npx.cmd
+  args:
+    - "-y"
+    - "@modelcontextprotocol/server-filesystem"
+    - "${user.dir}/mcp-sandbox"
+```
+
+**흐름 타임라인**:
+- 0ms: Spring Boot 앱이 실행됩니다.
+- 100ms: `application.yml` 설정을 보고 `npx.cmd`, `uvx.exe`로 외부 MCP 서버를 실행합니다.
+- 200ms: Spring AI MCP Client가 외부 MCP 서버와 연결합니다.
+- 300ms: `McpToolCatalog`가 외부 서버의 도구를 `ToolCallback`으로 모읍니다.
+- 400ms: `McpChatService`가 그 도구를 `ChatClient.tools(...)`에 붙입니다.
+
+**한 줄 메모**:
+- `McpChatService.java`와 `McpToolCatalog.java`는 MCP 서버가 아니라, 외부 MCP 서버를 가져다 쓰는 연결 코드입니다.
+---
+## [2026-07-08] Q: Day5 작업물을 GitHub에 커밋하고 푸시하기
+
+**질문**: git origin main push하자
+
+**핵심 개념**:
+- Git remote 확인: `origin`이 항상 원하는 저장소를 뜻하는 것은 아니므로 `git remote -v`로 먼저 확인해야 합니다.
+- 이번 저장소 구조: `origin`은 `day01.git`, Spring AI 전체 레포는 `springai` remote로 연결되어 있어 잘못된 저장소로 push하지 않도록 주의했습니다.
+- 커밋 대상 분리: Day5 프로젝트와 `STUDY_LOG.md`만 스테이징하고, `day04-multimodal/` 및 무관한 MCP 테스트 파일은 제외했습니다.
+
+**Python 비교**:
+```python
+# push 전에 목적지 URL을 확인하는 것과 같습니다.
+remote = "springai"
+branch = "main"
+```
+
+**Java/Spring 연결**:
+```text
+day05-tool-mcp
+├─ src/main/java
+├─ src/main/resources/static
+├─ mcp-sandbox
+└─ presentation
+```
+
+**흐름 타임라인**:
+- 0ms: `git status`, `git remote -v`로 저장소와 remote를 확인했습니다.
+- 100ms: `day05-tool-mcp` 빌드를 다시 검증했습니다.
+- 200ms: Day5 프로젝트와 `STUDY_LOG.md`를 스테이징했습니다.
+- 300ms: 잘못된 `origin/day01.git` 대신 Spring AI 레포 remote인 `springai`로 push하기로 정리했습니다.
+
+**한 줄 메모**:
+- `origin`이라는 이름보다 실제 URL이 중요합니다. 이번에는 Spring AI 전체 레포인 `springai/main`이 안전한 push 대상입니다.

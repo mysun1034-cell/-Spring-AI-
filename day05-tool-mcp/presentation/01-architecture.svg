@@ -1,0 +1,120 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#04101d"/>
+      <stop offset="0.48" stop-color="#071827"/>
+      <stop offset="1" stop-color="#0b2033"/>
+    </linearGradient>
+    <linearGradient id="cyan" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#37d9ff"/>
+      <stop offset="1" stop-color="#65f2c2"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="5" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <marker id="arrow" markerWidth="14" markerHeight="14" refX="11" refY="7" orient="auto">
+      <path d="M2,2 L12,7 L2,12 Z" fill="#37d9ff"/>
+    </marker>
+    <style>
+      <![CDATA[
+        .title { font: 800 58px 'Bahnschrift','Malgun Gothic',sans-serif; fill: #e7f1f7; letter-spacing: -2px; }
+        .sub { font: 500 22px 'Malgun Gothic',sans-serif; fill: #a9bdca; }
+        .label { font: 800 25px 'Malgun Gothic',sans-serif; fill: #e7f1f7; }
+        .small { font: 500 17px 'Malgun Gothic',sans-serif; fill: #93aabd; }
+        .mono { font: 700 15px 'Consolas','D2Coding',monospace; fill: #37d9ff; letter-spacing: 1px; }
+        .panel { fill: rgba(8,21,35,.86); stroke: rgba(105,158,190,.42); stroke-width: 1.6; }
+        .hot { stroke: #37d9ff; stroke-width: 2.4; filter: url(#glow); }
+        .line { stroke: #37d9ff; stroke-width: 3; fill: none; marker-end: url(#arrow); filter: url(#glow); }
+        .soft-line { stroke: rgba(101,242,194,.62); stroke-width: 2; fill: none; stroke-dasharray: 9 10; }
+        .pulse { animation: pulse 2.8s ease-in-out infinite; transform-origin: center; }
+        .flow { stroke-dasharray: 18 18; animation: dash 1.9s linear infinite; }
+        .orbit { animation: spin 18s linear infinite; transform-origin: 1320px 185px; }
+        @keyframes dash { to { stroke-dashoffset: -72; } }
+        @keyframes pulse { 0%,100% { opacity: .55; } 50% { opacity: 1; } }
+        @keyframes spin { to { transform: rotate(360deg); } }
+      ]]>
+    </style>
+  </defs>
+
+  <rect width="1600" height="900" fill="url(#bg)"/>
+  <g opacity="0.11">
+    <path d="M0 110 H1600 M0 220 H1600 M0 330 H1600 M0 440 H1600 M0 550 H1600 M0 660 H1600 M0 770 H1600"/>
+    <path d="M110 0 V900 M220 0 V900 M330 0 V900 M440 0 V900 M550 0 V900 M660 0 V900 M770 0 V900 M880 0 V900 M990 0 V900 M1100 0 V900 M1210 0 V900 M1320 0 V900 M1430 0 V900"/>
+    <path d="M0 110 H1600 M0 220 H1600 M0 330 H1600 M0 440 H1600 M0 550 H1600 M0 660 H1600 M0 770 H1600" stroke="#37d9ff"/>
+    <path d="M110 0 V900 M220 0 V900 M330 0 V900 M440 0 V900 M550 0 V900 M660 0 V900 M770 0 V900 M880 0 V900 M990 0 V900 M1100 0 V900 M1210 0 V900 M1320 0 V900 M1430 0 V900" stroke="#37d9ff"/>
+  </g>
+
+  <circle class="orbit" cx="1320" cy="185" r="118" fill="none" stroke="rgba(55,217,255,.22)" stroke-width="2"/>
+  <circle class="orbit" cx="1320" cy="185" r="78" fill="none" stroke="rgba(255,184,77,.22)" stroke-width="2"/>
+  <circle class="pulse" cx="1320" cy="185" r="8" fill="#ffb84d" filter="url(#glow)"/>
+
+  <text x="72" y="95" class="mono">SPRING AI DAY 5 · CARELINK COMMAND</text>
+  <text x="72" y="162" class="title">전체 아키텍처 한 장 요약</text>
+  <text x="76" y="205" class="sub">화면에서 질문을 보내면 Controller → Service → ChatClient → Tool/MCP → Gemini 순서로 흘러갑니다.</text>
+
+  <rect x="70" y="295" width="235" height="130" rx="16" class="panel hot"/>
+  <text x="100" y="338" class="mono">FRONTEND</text>
+  <text x="100" y="378" class="label">팔란티어 UI</text>
+  <text x="100" y="407" class="small">index.html · app.js</text>
+
+  <rect x="390" y="295" width="245" height="130" rx="16" class="panel hot"/>
+  <text x="420" y="338" class="mono">CONTROLLER</text>
+  <text x="420" y="378" class="label">AiController</text>
+  <text x="420" y="407" class="small">@GetMapping으로 주소 받기</text>
+
+  <rect x="735" y="250" width="270" height="100" rx="16" class="panel"/>
+  <text x="765" y="288" class="mono">SERVICE A</text>
+  <text x="765" y="324" class="label">ToolChatService</text>
+
+  <rect x="735" y="385" width="270" height="100" rx="16" class="panel hot"/>
+  <text x="765" y="423" class="mono">SERVICE B</text>
+  <text x="765" y="459" class="label">HelpdeskService</text>
+
+  <rect x="735" y="520" width="270" height="100" rx="16" class="panel"/>
+  <text x="765" y="558" class="mono">SERVICE C</text>
+  <text x="765" y="594" class="label">McpChatService</text>
+
+  <rect x="1110" y="340" width="250" height="140" rx="18" class="panel hot"/>
+  <text x="1140" y="383" class="mono">SPRING AI</text>
+  <text x="1140" y="423" class="label">ChatClient</text>
+  <text x="1140" y="452" class="small">prompt · tools · call</text>
+
+  <rect x="1140" y="655" width="310" height="120" rx="18" class="panel"/>
+  <text x="1170" y="696" class="mono">LOCAL TOOLS</text>
+  <text x="1170" y="733" class="label">@Tool 3종</text>
+  <text x="1170" y="762" class="small">시간 · 수급자 · 돌봄 규칙</text>
+
+  <rect x="370" y="655" width="285" height="120" rx="18" class="panel"/>
+  <text x="400" y="696" class="mono">CHAT MEMORY</text>
+  <text x="400" y="733" class="label">conversationId</text>
+  <text x="400" y="762" class="small">같은 대화방이면 기억 유지</text>
+
+  <rect x="735" y="655" width="300" height="120" rx="18" class="panel"/>
+  <text x="765" y="696" class="mono">MCP SERVERS</text>
+  <text x="765" y="733" class="label">filesystem · fetch</text>
+  <text x="765" y="762" class="small">mcp-sandbox 문서 읽기</text>
+
+  <rect x="1390" y="340" width="140" height="140" rx="70" fill="rgba(55,217,255,.1)" stroke="#37d9ff" stroke-width="2.5" filter="url(#glow)"/>
+  <text x="1428" y="400" class="mono">LLM</text>
+  <text x="1418" y="436" class="label">Gemini</text>
+
+  <path class="line flow" d="M305 360 H390"/>
+  <path class="line flow" d="M635 360 C680 360 685 300 735 300"/>
+  <path class="line flow" d="M635 360 C690 360 690 435 735 435"/>
+  <path class="line flow" d="M635 360 C690 360 690 570 735 570"/>
+  <path class="line flow" d="M1005 300 C1060 300 1065 410 1110 410"/>
+  <path class="line flow" d="M1005 435 H1110"/>
+  <path class="line flow" d="M1005 570 C1060 570 1065 420 1110 420"/>
+  <path class="line flow" d="M1360 410 H1390"/>
+
+  <path class="soft-line" d="M870 485 C850 585 610 585 512 655"/>
+  <path class="soft-line" d="M870 620 V655"/>
+  <path class="soft-line" d="M1245 480 C1250 565 1275 600 1295 655"/>
+
+  <rect x="70" y="805" width="1460" height="48" rx="12" fill="rgba(3,13,22,.72)" stroke="rgba(105,158,190,.28)"/>
+  <text x="95" y="837" class="small">핵심 메시지: AI가 답만 생성하는 것이 아니라, Spring Boot가 제공한 Tool과 MCP 문서를 호출해 상담 답변을 강화합니다.</text>
+</svg>

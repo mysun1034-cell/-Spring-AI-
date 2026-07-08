@@ -1,0 +1,113 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#050f1b"/>
+      <stop offset="0.5" stop-color="#081b2c"/>
+      <stop offset="1" stop-color="#0b2438"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <style>
+      <![CDATA[
+        .title { font: 800 58px 'Bahnschrift','Malgun Gothic',sans-serif; fill: #e7f1f7; letter-spacing: -2px; }
+        .sub { font: 500 22px 'Malgun Gothic',sans-serif; fill: #a9bdca; }
+        .mono { font: 700 15px 'Consolas','D2Coding',monospace; fill: #37d9ff; letter-spacing: 1px; }
+        .mode { font: 900 34px 'Malgun Gothic',sans-serif; fill: #e7f1f7; }
+        .api { font: 800 22px 'Consolas','D2Coding',monospace; fill: #65f2c2; }
+        .label { font: 700 18px 'Malgun Gothic',sans-serif; fill: #8fa9bb; }
+        .value { font: 700 22px 'Malgun Gothic',sans-serif; fill: #f1f8fb; }
+        .small { font: 500 18px 'Malgun Gothic',sans-serif; fill: #b8c9d4; }
+        .card { fill: rgba(7,20,34,.9); stroke: rgba(105,158,190,.42); stroke-width: 1.6; }
+        .hot { stroke: #37d9ff; stroke-width: 2.4; filter: url(#glow); }
+        .chip { fill: rgba(55,217,255,.1); stroke: rgba(55,217,255,.38); }
+        .dot { animation: blink 1.8s ease-in-out infinite; }
+        .sweep { animation: sweep 7s ease-in-out infinite; }
+        @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+        @keyframes sweep { 0% { transform: translateX(-420px); opacity: 0; } 20%,70% { opacity: .55; } 100% { transform: translateX(1650px); opacity: 0; } }
+      ]]>
+    </style>
+  </defs>
+
+  <rect width="1600" height="900" fill="url(#bg)"/>
+  <rect class="sweep" x="0" y="0" width="240" height="900" fill="rgba(55,217,255,.08)"/>
+  <g opacity=".1" stroke="#37d9ff">
+    <path d="M0 120 H1600 M0 240 H1600 M0 360 H1600 M0 480 H1600 M0 600 H1600 M0 720 H1600 M0 840 H1600"/>
+    <path d="M120 0 V900 M240 0 V900 M360 0 V900 M480 0 V900 M600 0 V900 M720 0 V900 M840 0 V900 M960 0 V900 M1080 0 V900 M1200 0 V900 M1320 0 V900 M1440 0 V900"/>
+  </g>
+
+  <text x="72" y="95" class="mono">MODE COMPARISON</text>
+  <text x="72" y="162" class="title">프론트 모드별 구현 비교</text>
+  <text x="76" y="205" class="sub">모드가 많아 보여도 핵심은 endpoint가 다르고, 각 endpoint마다 붙는 도구 조합이 다르다는 것입니다.</text>
+
+  <g transform="translate(75 275)">
+    <rect width="345" height="445" rx="22" class="card"/>
+    <circle class="dot" cx="302" cy="42" r="8" fill="#65f2c2" filter="url(#glow)"/>
+    <text x="28" y="52" class="mono">MODE 01</text>
+    <text x="28" y="103" class="mode">Assistant</text>
+    <text x="28" y="142" class="api">/api/assistant</text>
+    <rect x="28" y="176" width="286" height="54" rx="12" class="chip"/>
+    <text x="46" y="210" class="value">HelpdeskService</text>
+    <text x="28" y="270" class="label">기억</text>
+    <text x="120" y="270" class="value">ON</text>
+    <text x="28" y="322" class="label">도구</text>
+    <text x="120" y="322" class="small">로컬 Tool 3종</text>
+    <text x="28" y="374" class="label">시연</text>
+    <text x="120" y="374" class="small">후속 질문 기억</text>
+  </g>
+
+  <g transform="translate(455 275)">
+    <rect width="345" height="445" rx="22" class="card"/>
+    <circle class="dot" cx="302" cy="42" r="8" fill="#37d9ff" filter="url(#glow)"/>
+    <text x="28" y="52" class="mono">MODE 02</text>
+    <text x="28" y="103" class="mode">Local Tool</text>
+    <text x="28" y="142" class="api">/api/tool-chat</text>
+    <rect x="28" y="176" width="286" height="54" rx="12" class="chip"/>
+    <text x="46" y="210" class="value">ToolChatService</text>
+    <text x="28" y="270" class="label">기억</text>
+    <text x="120" y="270" class="value">OFF</text>
+    <text x="28" y="322" class="label">도구</text>
+    <text x="120" y="322" class="small">시간 · 수급자 · 규칙</text>
+    <text x="28" y="374" class="label">시연</text>
+    <text x="120" y="374" class="small">Java @Tool 호출</text>
+  </g>
+
+  <g transform="translate(835 275)">
+    <rect width="345" height="445" rx="22" class="card"/>
+    <circle class="dot" cx="302" cy="42" r="8" fill="#ffb84d" filter="url(#glow)"/>
+    <text x="28" y="52" class="mono">MODE 03</text>
+    <text x="28" y="103" class="mode">MCP</text>
+    <text x="28" y="142" class="api">/api/mcp-chat</text>
+    <rect x="28" y="176" width="286" height="54" rx="12" class="chip"/>
+    <text x="46" y="210" class="value">McpChatService</text>
+    <text x="28" y="270" class="label">기억</text>
+    <text x="120" y="270" class="value">OFF</text>
+    <text x="28" y="322" class="label">도구</text>
+    <text x="120" y="322" class="small">filesystem · fetch</text>
+    <text x="28" y="374" class="label">시연</text>
+    <text x="120" y="374" class="small">문서 읽고 요약</text>
+  </g>
+
+  <g transform="translate(1215 275)">
+    <rect width="345" height="445" rx="22" class="card hot"/>
+    <circle class="dot" cx="302" cy="42" r="8" fill="#37d9ff" filter="url(#glow)"/>
+    <text x="28" y="52" class="mono">MODE 04</text>
+    <text x="28" y="103" class="mode">Mixed</text>
+    <text x="28" y="142" class="api">/api/mixed-chat</text>
+    <rect x="28" y="176" width="286" height="54" rx="12" class="chip"/>
+    <text x="46" y="210" class="value">McpChatService</text>
+    <text x="28" y="270" class="label">기억</text>
+    <text x="120" y="270" class="value">OFF</text>
+    <text x="28" y="322" class="label">도구</text>
+    <text x="120" y="322" class="small">Local + MCP</text>
+    <text x="28" y="374" class="label">시연</text>
+    <text x="120" y="374" class="small">최종 결합 답변</text>
+  </g>
+
+  <rect x="105" y="785" width="1390" height="58" rx="16" fill="rgba(3,13,22,.74)" stroke="rgba(105,158,190,.32)"/>
+  <text x="135" y="822" class="small">발표 포인트: “화면 모드는 백엔드 endpoint 선택 스위치이고, endpoint마다 ChatClient에 붙는 Memory와 Tool 조합이 달라집니다.”</text>
+</svg>
