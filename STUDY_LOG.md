@@ -3613,3 +3613,66 @@ day05-tool-mcp
 
 **한 줄 메모**:
 - `origin`이라는 이름보다 실제 URL이 중요합니다. 이번에는 Spring AI 전체 레포인 `springai/main`이 안전한 push 대상입니다.
+---
+## [2026-07-08] Q: Day5 README를 오늘 작업 중심으로 재구성하기
+
+**질문**: README 내용 우리가 오늘 한 걸로 채우자. 기존 내용은 완전 축소시켜.
+
+**핵심 개념**:
+- README는 과제 기본 설명보다 오늘 완성한 결과물, 실행법, 시연법, 파일 구조를 먼저 보여주는 문서가 좋습니다.
+- 기존 API 목록 중심 설명은 축소하고, 프론트 UI, Tool Calling, Chat Memory, MCP, Mixed Chat, 발표자료를 중심으로 재배치했습니다.
+- 발표용 README는 이미지와 시연 질문을 함께 넣으면 GitHub에서 바로 프로젝트 흐름을 설명할 수 있습니다.
+
+**Python 비교**:
+```python
+readme_sections = [
+    "오늘 만든 것",
+    "실행 방법",
+    "프론트 사용법",
+    "시연 시나리오",
+    "구현 구조",
+]
+```
+
+**Java/Spring 연결**:
+```text
+Frontend -> AiController -> Service -> ChatClient -> Tool/MCP -> Gemini
+```
+
+**흐름 타임라인**:
+- 0ms: 기존 README 내용을 확인했습니다.
+- 20ms: 과제 기본 설명과 긴 API 목록을 축소했습니다.
+- 40ms: 오늘 구현한 프론트, 시연 시나리오, 발표 이미지, 주요 파일 구조를 중심으로 재작성했습니다.
+- 60ms: README 상단에 아키텍처 이미지와 모드 비교 이미지를 배치했습니다.
+
+**한 줄 메모**:
+- `day05-tool-mcp/README.md`는 이제 오늘 만든 CareLink AI Command 결과물 중심의 발표/제출용 README입니다.
+---
+## [2026-07-08] Q: README 변경분이 GitHub에 반영되지 않은 이유와 재푸시
+
+**질문**: 그러면 push햇니? 반영이 안 되네
+
+**핵심 개념**:
+- 이전 push 이후 README를 다시 수정했기 때문에, 새 README 내용은 아직 커밋/푸시되지 않은 로컬 변경분이었습니다.
+- `origin` remote는 `day01.git`을 가리키고 있어 이번 Spring AI 전체 레포에는 `springai` remote로 push해야 합니다.
+- GitHub에 반영되려면 수정 → stage → commit → fetch/rebase → push 순서가 필요합니다.
+
+**Python 비교**:
+```python
+local_changes = ["README.md", "STUDY_LOG.md"]
+commit(local_changes)
+push(remote="springai", branch="main")
+```
+
+**Java/Spring 연결**:
+```text
+day05-tool-mcp/README.md
+```
+
+**흐름 타임라인**:
+- 0ms: `git status`로 README와 STUDY_LOG가 아직 로컬 변경분임을 확인했습니다.
+- 20ms: `git remote -v`로 `origin`이 day01 저장소임을 확인했습니다.
+- 40ms: Spring AI 레포는 `springai` remote이므로 그쪽으로 다시 push하기로 정리했습니다.
+
+**한 줄 메모**:
+- 반영이 안 된 이유는 README 재작성 작업이 이전 push 이후에 발생했기 때문입니다.
